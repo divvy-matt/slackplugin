@@ -21,17 +21,17 @@ class metadata(PluginMetadata):
 
 blueprint = Blueprint('slack', __name__, static_folder='html', template_folder='html')
 
-@blueprint.route('/', methods=['GET'])
+@blueprint.route('/', methods=['POST'])
 def send_to_slack():
     """
     Send a message to slack.
     """
-    reqobject = request
+    message = json.loads(request.data)
     # Form slack payload
     payload = {
         'channel': '#general',
         'username': 'annagoldberg',
-        'text': reqobject.args['foo']
+        'text': message["text"]
     }
 
     data = json.dumps(payload)
