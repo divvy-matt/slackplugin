@@ -3,6 +3,7 @@ import json
 import requests
 from flask import Blueprint, request
 
+from DivvyPlugins.hookpoints import hookpoint
 from DivvyPlugins.plugin_helpers import register_api_blueprint, unregister_api_blueprints
 from DivvyPlugins.plugin_metadata import PluginMetadata
 from DivvyUtils.flask_helpers import JsonResponse
@@ -38,6 +39,19 @@ def send_to_slack():
     response = requests.post("https://hooks.slack.com/services/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", data=data)
 
     return JsonResponse({'HamBacon': response.content})
+
+
+# Needs to be scoped down! Will span slack general channel -Peter
+# @hookpoint('divvycloud.instance.modified')
+# def hamster(resource, old_resource_data, user_resource_id=None):
+#     payload = {
+#         'channel': '#general',
+#         'username': 'annagoldberg',
+#         'text': "this is a test on modified of an instance"
+#     }
+#
+#     data = json.dumps(payload)
+#     return requests.post("https://hooks.slack.com/services/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", data=data)
 
 
 def load():
