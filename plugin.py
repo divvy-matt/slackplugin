@@ -66,7 +66,6 @@ def send_to_slack():
         'text': message['text']
     }
 
-    #print('channel: ', channel.get_for_resource(plugin_ref), 'apiKey: ', apiKey.get_for_resource(plugin_ref))
     data = json.dumps(payload)
 
     response = requests.post(apiKey.get_for_resource(plugin_ref), data=data)
