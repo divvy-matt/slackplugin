@@ -136,19 +136,30 @@ def send_slack():
 
 def resource_match(resource):
     #get user input for resource criteria
-    resource_id       = resourceID.get_for_resource(PLUGIN_REF)
-    resource_location = resourceLocation.get_for_resource(PLUGIN_REF)
-    origin_id         = originID.get_for_resource(PLUGIN_REF)
-    resource_type     = resourceType.get_for_resource(PLUGIN_REF)
-    resource_name     = resourceName.get_for_resource(PLUGIN_REF)
-    resource_tag_key  = resourceTagKey.get_for_resource(PLUGIN_REF)
+    resource_id             = resourceID.get_for_resource(PLUGIN_REF)
+    resource_location       = resourceLocation.get_for_resource(PLUGIN_REF)
+    origin_id               = originID.get_for_resource(PLUGIN_REF)
+    resource_type           = resourceType.get_for_resource(PLUGIN_REF)
+    resource_name           = resourceName.get_for_resource(PLUGIN_REF)
+    resource_tag_key        = resourceTagKey.get_for_resource(PLUGIN_REF)
+    resource_tag_key_match  = False
+
+    if resource_tag_key != '':
+       try:
+        resource.get_tag(resource_tag_key)
+        resource_tag_key_match = True
+       except:
+        pass
 
     return resource.resource_id.to_string()    == resource_id \
        or resource.instance_id                 == origin_id \
        or resource.region_name                 == resource_location \
-       or resource.get_resource_name           == resource_name \
-       or resource.get_instance_type()         == resource_type\
-       or resource.get_tag(resource_tag_key)
+       or resource.get_resource_name()           == resource_name \
+       or resource.get_instance_type()         == resource_type \
+       or resource_tag_key_match
+
+
+
 
 
 @hookpoint('divvycloud.instance.created')
