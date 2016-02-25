@@ -167,7 +167,6 @@ def resource_match(resource):
 def send_change_to_slack(resource, old_resource_data, user_resource_id=None):
     """Send a message to slack if resource has changed."""
 
-    print('CHANNEL: ',  channel.get_for_resource(PLUGIN_REF));
     #user input for slack messaging
     channel_name   = channel.get_for_resource(PLUGIN_REF)
     user_name      = username.get_for_resource(PLUGIN_REF)
@@ -176,7 +175,6 @@ def send_change_to_slack(resource, old_resource_data, user_resource_id=None):
 
     #if any of the criteria match send a message
     if resource_match(resource) :
-        print('FOUND A CHANGE!!')
         send_to_slack(channel_name, user_name, message_body, api_key)
 
 
