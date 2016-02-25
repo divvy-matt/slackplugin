@@ -144,6 +144,7 @@ def resource_match(resource):
     resource_tag_key        = resourceTagKey.get_for_resource(PLUGIN_REF)
     resource_tag_key_match  = False
 
+    #if a tag key was entered in settings pass it to get_tag
     if resource_tag_key != '':
        try:
         resource.get_tag(resource_tag_key)
@@ -157,9 +158,6 @@ def resource_match(resource):
        or resource.get_resource_name()           == resource_name \
        or resource.get_instance_type()         == resource_type \
        or resource_tag_key_match
-
-
-
 
 
 @hookpoint('divvycloud.instance.created')
