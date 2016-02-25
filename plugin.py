@@ -136,19 +136,30 @@ def send_slack():
 
 def resource_match(resource):
     #get user input for resource criteria
-    resource_id       = resourceID.get_for_resource(PLUGIN_REF)
-    resource_location = resourceLocation.get_for_resource(PLUGIN_REF)
-    origin_id         = originID.get_for_resource(PLUGIN_REF)
-    resource_type     = resourceType.get_for_resource(PLUGIN_REF)
-    resource_name     = resourceName.get_for_resource(PLUGIN_REF)
-    resource_tag_key  = resourceTagKey.get_for_resource(PLUGIN_REF)
+    resource_id             = resourceID.get_for_resource(PLUGIN_REF)
+    resource_location       = resourceLocation.get_for_resource(PLUGIN_REF)
+    origin_id               = originID.get_for_resource(PLUGIN_REF)
+    resource_type           = resourceType.get_for_resource(PLUGIN_REF)
+    resource_name           = resourceName.get_for_resource(PLUGIN_REF)
+    resource_tag_key        = resourceTagKey.get_for_resource(PLUGIN_REF)
+    resource_tag_key_match  = False
+
+    if resource_tag_key != '':
+       try:
+        resource.get_tag(resource_tag_key)
+        resource_tag_key_match = True
+       except:
+        pass
 
     return resource.resource_id.to_string()    == resource_id \
        or resource.instance_id                 == origin_id \
        or resource.region_name                 == resource_location \
-       or resource.get_resource_name           == resource_name \
-       or resource.get_instance_type()         == resource_type\
-       or resource.get_tag(resource_tag_key)
+       or resource.get_resource_name()           == resource_name \
+       or resource.get_instance_type()         == resource_type \
+       or resource_tag_key_match
+
+
+
 
 
 @hookpoint('divvycloud.instance.created')
@@ -156,6 +167,7 @@ def resource_match(resource):
 def send_change_to_slack(resource, old_resource_data, user_resource_id=None):
     """Send a message to slack if resource has changed."""
 
+    print('CHANNEL: ',  channel.get_for_resource(PLUGIN_REF));
     #user input for slack messaging
     channel_name   = channel.get_for_resource(PLUGIN_REF)
     user_name      = username.get_for_resource(PLUGIN_REF)
@@ -164,6 +176,7 @@ def send_change_to_slack(resource, old_resource_data, user_resource_id=None):
 
     #if any of the criteria match send a message
     if resource_match(resource) :
+        print('FOUND A CHANGE!!')
         send_to_slack(channel_name, user_name, message_body, api_key)
 
 
