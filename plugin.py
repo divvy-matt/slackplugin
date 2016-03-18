@@ -1,7 +1,9 @@
+
 import json
 
 import requests
 from flask import Blueprint, request
+from jinja2 import Template
 
 from DivvyPlugins.hookpoints      import hookpoint
 from DivvyPlugins.plugin_helpers  import register_api_blueprint, unregister_api_blueprints
@@ -9,7 +11,15 @@ from DivvyPlugins.plugin_metadata import PluginMetadata
 from DivvyUtils.flask_helpers     import JsonResponse
 from DivvyResource.Resources      import DivvyPlugin
 from DivvyPlugins.settings        import GlobalSetting
+from DivvyUtils.field_definition import StringField, MultiSelectionField, FieldOptions
+from DivvyUtils.mail import send_email
+from DivvyWorkers.OnDemand import InstanceLifecycle
 
+
+import sys
+sys.path.append('/Users/chancecard88/Code/plugins/botfactory/cooked')
+
+from botfactory import registry
 
 class metadata(PluginMetadata):
     version                       = '1.0'
@@ -110,7 +120,7 @@ resourceLocation = GlobalSetting(
 
 def send_to_slack(channel,username,message,apiKey):
     """Send a message to slack."""
-
+    print("about to send the message: " + message + " part II!")
     # Form slack payload
     payload = {
         'channel': channel,
@@ -175,42 +185,81 @@ def send_change_to_slack(resource, old_resource_data, user_resource_id=None):
     if resource_match(resource) :
         send_to_slack(channel_name, user_name, message_body, api_key)
 
+def slackMessage(resource, current_bot, settings):
+    print("about to send a slack message in bot factory")
+    #send the message to slack
+    send_to_slack(channel=settings['channel'],
+                  username=settings['username'],
+                  message=Template(settings['message']).render(resource=resource),
+                  api_key=settings['api_key'])
+
+def stop_instance(resource, current_bot, settings):
+    InstanceLifecycle.StopInstanceJob(resource.resource_id, None).run_job().result(timeout=60)
 
 
-# @BotFunctionRegistry.action(
-#     display_name="Send Slack Message",
-#     unique_name="divvy.send_slack",
-#     input_types=["instance"],
-#     setting_definitions=[
-#         StringField(
-#             name='channel',
-#             display_name='Slack Channel',
-#             description="Slack Channel from which the message should be sent"),
-#         StringField(
-#             name='username',
-#             display_name='Slack Username',
-#             description="Slack Username from which the message should be sent"),
-#         StringField(
-#             name='message',
-#             display_name='Message Body',
-#             description="Contents of the message which should be sent"),
-#         StringField(
-#             name='apiKey',
-#             display_name='Slack API key',
-#             description="Slack API key to allow slack integration"),
-#     ])
-# def slack_message(resource, current_bot, settings):
-#     send_to_slack(channel=settings['channel'].format(resource=resource),
-#                username=settings['username'].format(resource=resource),
-#                message=settings['subject'].format(resource=resource),
-#                apiKey=settings['apiKey'].format(resource=resource),
-#                botFactory=True)
-#     print 'slack message sent!'
+def log(resource, current_bot, settings):
+    print(resource.resource_id, "Log from botfactory")
+
+
+ACTIONS = [
+    registry.BotFactoryAction(
+        uid='divvy.action.log',
+        name='Log line',
+        description='Log info message for development',
+        author='DivvyCloud Inc.',
+        supported_resources=[],
+        settings_config=[],
+        function=log
+    ),
+    registry.BotFactoryAction(
+        uid='divvy.action.instance.start',
+        name='Start Instance',
+        description='Attempts Instance Start life cycle action. Action is dependant on resource state.',
+        author='DivvyCloud Inc.',
+        supported_resources=[],
+        settings_config=[],
+        function=stop_instance
+    ),
+    registry.BotFactoryAction(
+        uid='divvy.action.send_slack_message',
+        name='Send Slack Message',
+        description='Sends slack message and allows slack message body to be \
+                    formatted with resource attributes. Eg. {resource.<attr_name>}',
+        author='DivvyCloud Inc.',
+        supported_resources=[],
+        settings_config=[
+            StringField(
+                name='api_key',
+                display_name='slack api key',
+                description='The api Key allows a user to access slack integration',
+                options=FieldOptions.REQUIRED),
+            StringField(
+                name='username',
+                display_name='Slack username',
+                description='This is the username messages are sent from',
+                options=FieldOptions.REQUIRED),
+            StringField(
+                name='channel',
+                display_name='Slack channel name',
+                description="Channel to post slack messages",
+                options=FieldOptions.REQUIRED),
+            StringField(
+                name='message',
+                display_name='Message Body',
+                description="Contents of the message which should be sent",
+                options=FieldOptions.REQUIRED)
+        ],
+        function=slackMessage
+    )
+]
 
 def load():
     register_api_blueprint(blueprint)
+    registry.ActionRegistry().registry.register(ACTIONS)
+
 
 
 def unload():
     unregister_api_blueprints()
+    registry.ActionRegistry().registry.unregister(ACTIONS)
 
