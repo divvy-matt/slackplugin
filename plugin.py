@@ -2,18 +2,18 @@ import json
 
 import requests
 from flask import Blueprint, request
+from jinja2 import Template
 
-from DivvyPlugins.hookpoints      import hookpoint
-from DivvyPlugins.plugin_helpers  import register_api_blueprint, unregister_api_blueprints
 from DivvyPlugins.plugin_metadata import PluginMetadata
-from DivvyUtils.flask_helpers     import JsonResponse
 from DivvyResource.Resources      import DivvyPlugin
 from DivvyPlugins.settings        import GlobalSetting
+
+from plugins.botfactory.registry import BotFactoryAction, ActionRegistry
 
 
 class metadata(PluginMetadata):
     version                       = '1.0'
-    last_updated_date             = '2016-01-28'
+    last_updated_date             = '2016-04-30'
     author                        = 'Divvy Cloud Corp.'
     nickname                      = 'Slack Integration'
     default_language_description  = 'Collection of slack integrations'
@@ -22,23 +22,20 @@ class metadata(PluginMetadata):
     main_url                      = 'http://www.divvycloud.com'
     managed                       = True
 
+
 blueprint = Blueprint('slack', __name__, static_folder='html', template_folder='html')
+
 
 #Setting Names
 PREFIX           = DivvyPlugin.get_current_plugin().name
 APIKEY           = PREFIX + '.apiKey'
 CHANNEL          = PREFIX + '.channel'
 USERNAME         = PREFIX + '.username'
-MESSAGE          = PREFIX + '.message'
-RESOURCEID       = PREFIX + '.resourceID'
-RESOURCETYPE     = PREFIX + '.resourceType'
-RESOURCENAME     = PREFIX + '.resourceName'
-RESOURCELOCATION = PREFIX + '.resourceLocation'
-ORIGINID         = PREFIX + '.originID'
-RESOURCETAGKEY   = PREFIX + '.resourceTagKey'
+
 
 #Plugin reference
 PLUGIN_REF = DivvyPlugin.get_current_plugin()
+
 
 #Register Global Settings
 apiKey = GlobalSetting(
@@ -47,170 +44,76 @@ apiKey = GlobalSetting(
     type_hint    = 'string',
     description  = 'This apiKey allows a user to access slack integration')
 
+
 channel = GlobalSetting(
-    name         = '#'+CHANNEL,
-    display_name = 'Slack channel name',
+    name         = CHANNEL,
+    display_name = 'Default Slack channel',
     type_hint    = 'string',
     description  = 'This is where slack will post messages')
 
+
 username = GlobalSetting(
     name         = USERNAME,
-    display_name = 'Slack username',
+    display_name = 'Default Slack username',
     type_hint    = 'string',
     description  = 'This is the username messages are sent from')
 
-message = GlobalSetting(
-    name         = MESSAGE,
-    display_name = 'Message body',
-    type_hint    = 'string',
-    description  = 'This is a default message body'
-)
 
-resourceID = GlobalSetting(
-    name         = RESOURCEID,
-    display_name = 'Resource ID',
-    type_hint    = 'string',
-    description  = 'The resource ID'
-)
-
-resourceType = GlobalSetting(
-    name         = RESOURCETYPE,
-    display_name = 'Resource type',
-    type_hint    = 'string',
-    description  = 'The resource type'
-)
-
-resourceName = GlobalSetting(
-   name          = RESOURCENAME,
-   display_name  = 'Resource name',
-   type_hint     = 'string',
-   description   = 'The resource name'
-)
-
-resourceTagKey = GlobalSetting(
-   name          = RESOURCETAGKEY,
-   display_name  = 'Resource tag key',
-   type_hint     = 'string',
-   description   = 'Resource tag key'
-)
-
-originID = GlobalSetting(
-    name         = ORIGINID,
-    display_name = 'Origin ID',
-    type_hint    = 'string',
-    description  = 'The origin ID'
-)
-
-resourceLocation = GlobalSetting(
-   name          = RESOURCELOCATION,
-   display_name  = 'Resource location',
-   type_hint     = 'string',
-   description   = 'The resource location'
-)
-
-def send_to_slack(channel,username,message,apiKey):
+def send_slack(message, channel=None, username=None):
     """Send a message to slack."""
+    api_key = apiKey.get_for_resource(PLUGIN_REF)
+    if api_key:
+        payload = {
+            'channel': channel or channel.get_for_resource(PLUGIN_REF),
+            'username': username or username.get_for_resource(PLUGIN_REF),
+            'text': message
+        }
 
-    # Form slack payload
-    payload = {
-        'channel': channel,
-        'username': username,
-        'text': message
-    }
-
-    data = json.dumps(payload)
-    response = requests.post(apiKey, data=data)
-    return response.content
-
-@blueprint.route('/', methods=['POST'])
-def send_slack():
-    """Send a message to slack by request"""
-    payload        = json.loads(request.data)
-    channel_name   = payload.get('channel', channel.get_for_resource(PLUGIN_REF))
-    user_name      = payload.get('username', username.get_for_resource(PLUGIN_REF))
-    message_body   = payload.get('text', message.get_for_resource(PLUGIN_REF))
-    api_key        = payload.get('apiKey', apiKey.get_for_resource(PLUGIN_REF))
-
-    response = send_to_slack(channel_name, user_name, message_body, api_key)
-    return JsonResponse({'Response': response})
-
-def resource_match(resource):
-    #get user input for resource criteria
-    resource_id             = resourceID.get_for_resource(PLUGIN_REF)
-    resource_location       = resourceLocation.get_for_resource(PLUGIN_REF)
-    origin_id               = originID.get_for_resource(PLUGIN_REF)
-    resource_type           = resourceType.get_for_resource(PLUGIN_REF)
-    resource_name           = resourceName.get_for_resource(PLUGIN_REF)
-    resource_tag_key        = resourceTagKey.get_for_resource(PLUGIN_REF)
-    resource_tag_key_match  = False
-
-    #if a tag key was entered in settings pass it to get_tag
-    if resource_tag_key != '':
-       try:
-        resource.get_tag(resource_tag_key)
-        resource_tag_key_match = True
-       except:
+        data = json.dumps(payload)
+        response = requests.post(apiKey, data=data)
+    
+        return response.content
+    else:
         pass
 
-    return resource.resource_id.to_string()    == resource_id \
-       or resource.instance_id                 == origin_id \
-       or resource.region_name                 == resource_location \
-       or resource.get_resource_name()           == resource_name \
-       or resource.get_instance_type()         == resource_type \
-       or resource_tag_key_match
+
+def botfactory_slack(event, current_bot, settings):
+    message_raw = Template(settings.get('message', 'Error: message not configured'))
+    message = message_raw.render(event=event)
+    
+    return send_slack(message, channel=settings.get('channel'), username=settings.get('username'))
 
 
-@hookpoint('divvycloud.instance.created')
-@hookpoint('divvycloud.instance.modified')
-def send_change_to_slack(resource, old_resource_data, user_resource_id=None):
-    """Send a message to slack if resource has changed."""
+ACTIONS = [
+    BotFactoryAction(
+        uid='slack.send_slack',
+        name='Send Slack Message',
+        description='Sends message to slack that is \
+                    formatted with resource attributes using Jinja2 templates. Eg. {{resource.<attr_name>}}',
+        author='DivvyCloud Inc.',
+        supported_resources=[],
+        settings_config=[
+            StringField(
+                name='channel',
+                display_name='Slack Channel',
+                description="Slack Channel from which the message should be sent"),
+            StringField(
+                name='username',
+                display_name='Slack Username',
+                description="Slack Username from which the message should be sent"),
+            StringField(
+                name='message',
+                display_name='Message Body',
+                description="Contents of the message which should be sent")
+        ],
+        function: botfactory_slack
+    )
+]
 
-    #user input for slack messaging
-    channel_name   = channel.get_for_resource(PLUGIN_REF)
-    user_name      = username.get_for_resource(PLUGIN_REF)
-    message_body   = 'This is a modified instance of reference:' + resource.resource_id.to_string()
-    api_key        = apiKey.get_for_resource(PLUGIN_REF)
-
-    #if any of the criteria match send a message
-    if resource_match(resource) :
-        send_to_slack(channel_name, user_name, message_body, api_key)
-
-
-
-# @BotFunctionRegistry.action(
-#     display_name="Send Slack Message",
-#     unique_name="divvy.send_slack",
-#     input_types=["instance"],
-#     setting_definitions=[
-#         StringField(
-#             name='channel',
-#             display_name='Slack Channel',
-#             description="Slack Channel from which the message should be sent"),
-#         StringField(
-#             name='username',
-#             display_name='Slack Username',
-#             description="Slack Username from which the message should be sent"),
-#         StringField(
-#             name='message',
-#             display_name='Message Body',
-#             description="Contents of the message which should be sent"),
-#         StringField(
-#             name='apiKey',
-#             display_name='Slack API key',
-#             description="Slack API key to allow slack integration"),
-#     ])
-# def slack_message(resource, current_bot, settings):
-#     send_to_slack(channel=settings['channel'].format(resource=resource),
-#                username=settings['username'].format(resource=resource),
-#                message=settings['subject'].format(resource=resource),
-#                apiKey=settings['apiKey'].format(resource=resource),
-#                botFactory=True)
-#     print 'slack message sent!'
 
 def load():
-    register_api_blueprint(blueprint)
+    ActionRegistry().registry.register(ACTIONS)
 
 
 def unload():
-    unregister_api_blueprints()
-
+    ActionRegistry().registry.unregister(ACTIONS)
