@@ -8,7 +8,13 @@ from DivvyPlugins.plugin_metadata import PluginMetadata
 from DivvyResource.Resources      import DivvyPlugin
 from DivvyPlugins.settings        import GlobalSetting
 
-from plugins.botfactory.registry import BotFactoryAction, ActionRegistry
+
+# from DivvyBotfactory.registry import *
+from DivvyBotfactory.registry import BotFactoryAction, ActionRegistry
+from DivvyUtils.field_definition import StringField
+
+
+
 
 
 class metadata(PluginMetadata):
@@ -106,7 +112,8 @@ ACTIONS = [
                 display_name='Message Body',
                 description="Contents of the message which should be sent")
         ],
-        function: botfactory_slack
+
+        function=botfactory_slack
     )
 ]
 
