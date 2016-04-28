@@ -3,13 +3,12 @@ import json
 import requests
 from flask import Blueprint, request
 from jinja2 import Template
-
+from DivvyUtils.field_definition import StringField
 from DivvyPlugins.plugin_metadata import PluginMetadata
 from DivvyResource.Resources      import DivvyPlugin
 from DivvyPlugins.settings        import GlobalSetting
 
-from plugins.botfactory.registry import BotFactoryAction, ActionRegistry
-
+from DivvyBotfactory.registry import BotFactoryAction, ActionRegistry
 
 class metadata(PluginMetadata):
     version                       = '1.0'
@@ -89,7 +88,7 @@ ACTIONS = [
         uid='slack.send_slack',
         name='Send Slack Message',
         description='Sends message to slack that is \
-                    formatted with resource attributes using Jinja2 templates. Eg. {{resource.<attr_name>}}',
+                    formatted with resource attributes using Jinja2 templates. Eg. {{event.resource.name}}',
         author='DivvyCloud Inc.',
         supported_resources=[],
         settings_config=[
@@ -104,9 +103,9 @@ ACTIONS = [
             StringField(
                 name='message',
                 display_name='Message Body',
-                description="Contents of the message which should be sent")
+                description="Contents of the message. Jinja2 formatting is allowed")
         ],
-        function: botfactory_slack
+        function=botfactory_slack
     )
 ]
 
