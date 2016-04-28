@@ -10,6 +10,7 @@ from DivvyPlugins.settings        import GlobalSetting
 
 from DivvyBotfactory.registry import BotFactoryAction, ActionRegistry
 
+
 class metadata(PluginMetadata):
     version                       = '1.0'
     last_updated_date             = '2016-04-30'
@@ -105,7 +106,6 @@ ACTIONS = [
                 display_name='Message Body',
                 description="Contents of the message. Jinja2 formatting is allowed")
         ],
-        function=botfactory_slack
     )
 ]
 
